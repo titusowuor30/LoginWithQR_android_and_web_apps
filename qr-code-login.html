@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Backendless QR Login Demo</title>
+    <script type="text/javascript" src="//api.backendless.com/sdk/js/latest/backendless.js"></script>
+    <style>
+        .qr {
+            width: 300px;
+            height: 300px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        #user_info {
+            width: 600px;
+            height: 100px;
+            margin-top: 25px;
+            margin-bottom: 25px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>Backendless QR Login Demo</h2>
+
+<div id="user_info">
+</div>
+
+<div id="qr_image" class="qr">
+    <img src="path" align="middle" alt="QR code."/>
+</div>
+
+<script>
+    var APP_ID = "9AD9675C-CA25-8A62-FFA4-7325E2945C00";
+    var API_KEY = "4A6D1C6E-F271-46F6-8E9D-5A10D318E113";
+    Backendless.initApp( APP_ID, API_KEY );
+
+    var channel = null;
+    var channelName = null;
+    var filePath = null;
+
+    function clear()
+    {
+        channel.leave();
+        channel = null;
+        channelName = null;
+        filePath = null;
+    }
+
+    function initializeQRLoginSession() {
+        Backendless.LocalCache.set("user-token", null);
+        if (channel != null)
+            clear();
+
+        Backendless.CustomServices.invoke( "QRCodeGenerator", "generateQRCodeForLogin" ).then( function ( qrData ) {
+            channelName = qrData.data;
+            filePath = qrData.file;
+
+            console.log( "channelName: ", channelName );
+            console.log( "filePath: ", filePath );
+
+            img = `<img src="${filePath}" alt="QR code" align="middle"/>`;
+            qr_image.innerHTML = img;
+
+            channel = Backendless.Messaging.subscribe( channelName );
+            channel.addMessageListener( onMessage )
+        } );
+    }
+
+    function onMessage( data ) {
+        console.log( 'got a message: ', data );
+        // channel.removeMessageListener( onMessage );
+        clear();
+        login(data.message);
+    }
+
+    async function login(token)
+    {
+        console.log("user-token: " + token);
+        Backendless.LocalCache.set("user-token", token);
+
+        const userObjectId = await Backendless.CustomServices.invoke( "QRCodeGenerator", "getUserId" );
+        console.log("current-user-id: " + userObjectId);
+        Backendless.LocalCache.set("current-user-id", userObjectId);
+
+        const userObject = await Backendless.Data.of(Backendless.User).findById( userObjectId );
+        user_info.innerHTML = JSON.stringify(userObject);
+        qr_image.innerHTML = ''
+    }
+
+    initializeQRLoginSession();
+</script>
+
+</body>
+</html>
